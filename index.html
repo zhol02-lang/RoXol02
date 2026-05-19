@@ -462,7 +462,7 @@ function HomeView({ user, setView }) {
 }
 
 // ── Favorites View ──────────────────────────────────────────
-function FavoritesView() {
+function FavoritesView({ setBrowserUrl, setView: setMainView }) {
   const [favs, setFavs] = useState([]);
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({ name: "", url: "", emoji: "🌐", category: "General", color: ROSE });
@@ -525,7 +525,7 @@ function FavoritesView() {
                 onMouseEnter={e => { e.currentTarget.style.borderColor = f.color || ROSE; e.currentTarget.style.transform = "translateY(-2px)"; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.transform = "translateY(0)"; }}
               >
-                <div onClick={() => window.open(f.url, "_blank")}>
+                <div onClick={() => { setBrowserUrl(f.url); setMainView("browser"); }}>
                   <div style={{ fontSize: 28, marginBottom: 8 }}>{f.emoji}</div>
                   <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{f.name}</div>
                   <div style={{ fontSize: 11, color: "#555", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -1489,6 +1489,7 @@ function RoXoL() {
   const [screen, setScreen] = useState("loading");
   const [user, setUser] = useState(null);
   const [view, setView] = useState("home");
+  const [browserUrl, setBrowserUrl] = useState("");
 
   useEffect(() => {
     // Inject styles
@@ -1521,7 +1522,7 @@ function RoXoL() {
       <Sidebar view={view} setView={setView} user={user} onLogout={onLogout} />
       <main style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", position: "relative", zIndex: 1 }}>
         {view === "home" && <HomeView user={user} setView={setView} />}
-        {view === "favorites" && <FavoritesView />}
+        {view === "favorites" && <FavoritesView setBrowserUrl={setBrowserUrl} setView={setView} />}
         {view === "files" && <FilesView />}
         {view === "ai" && <AIView />}
         {view === "streaming" && <StreamingView />}
@@ -1530,7 +1531,99 @@ function RoXoL() {
         {view === "cycle" && <CycleView />}
         {view === "chat" && <ChatView />}
         {view === "email" && <EmailView />}
+        {view === "browser" && <BuiltInBrowser url={browserUrl} setBrowserUrl={setBrowserUrl} setView={setView} />}
       </main>
+    </div>
+  );
+}
+
+// ── Built-in Browser ────────────────────────────────────────
+function BuiltInBrowser({ url, setBrowserUrl, setView }) {
+  const [currentUrl, setCurrentUrl] = useState(url || "");
+  const [inputUrl, setInputUrl] = useState(url || "");
+  const [blocked, setBlocked] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const iframeRef = useRef();
+
+  // Sites known to block iframes
+  const BLOCKED_SITES = ["youtube.com", "netflix.com", "spotify.com", "google.com", "facebook.com", "instagram.com", "twitter.com", "x.com"];
+  const isBlocked = (u) => BLOCKED_SITES.some(s => u.includes(s));
+
+  useEffect(() => {
+    if (url) { setCurrentUrl(url); setInputUrl(url); setBlocked(isBlocked(url)); }
+  }, [url]);
+
+  const navigate = (u) => {
+    let full = u;
+    if (!full.startsWith("http")) full = "https://" + full;
+    if (isBlocked(full)) { setBlocked(true); setCurrentUrl(full); setInputUrl(full); }
+    else { setBlocked(false); setLoading(true); setCurrentUrl(full); setInputUrl(full); setBrowserUrl(full); }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: BG }}>
+      {/* Browser toolbar */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", background: BG2, borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
+        <button onClick={() => setView("favorites")} style={{ background: "none", border: "none", color: "#888", cursor: "pointer", padding: "6px 10px", borderRadius: 8, display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+          <Ico d={I.star} size={14} /> Favorites
+        </button>
+        <div style={{ flex: 1, display: "flex", gap: 8, alignItems: "center", background: BG3, border: `1px solid ${BORDER}`, borderRadius: 10, padding: "6px 12px" }}>
+          <span style={{ fontSize: 12 }}>🔒</span>
+          <input
+            value={inputUrl}
+            onChange={e => setInputUrl(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && navigate(inputUrl)}
+            style={{ flex: 1, background: "none", border: "none", color: "#f0f0f8", fontSize: 13, outline: "none" }}
+            placeholder="Enter URL..."
+          />
+        </div>
+        <button onClick={() => navigate(inputUrl)} style={{ padding: "7px 16px", background: `${GREEN}22`, border: `1px solid ${GREEN}44`, borderRadius: 8, color: GREEN, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Go</button>
+        <button onClick={() => window.open(currentUrl, "_blank")} style={{ padding: "7px 12px", background: GLASS, border: `1px solid ${BORDER}`, borderRadius: 8, color: "#888", cursor: "pointer", fontSize: 12 }} title="Open in new tab">
+          <Ico d={I.ext} size={14} />
+        </button>
+      </div>
+
+      {/* Browser content */}
+      <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+        {loading && !blocked && (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: BG, zIndex: 5 }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ width: 40, height: 40, border: `3px solid ${BORDER}`, borderTop: `3px solid ${GREEN}`, borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
+              <div style={{ color: "#666", fontSize: 13 }}>Loading...</div>
+            </div>
+          </div>
+        )}
+
+        {blocked ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", flexDirection: "column", gap: 16, padding: 32 }}>
+            <div style={{ fontSize: 48 }}>🚫</div>
+            <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 18, color: "#f0f0f8" }}>Site blocks embedding</div>
+            <div style={{ color: "#666", fontSize: 14, textAlign: "center", maxWidth: 400, lineHeight: 1.6 }}>
+              <strong style={{ color: "#aaa" }}>{currentUrl.replace(/^https?:\/\//, "").split("/")[0]}</strong> doesn't allow opening inside other websites. This is their security setting, not a RoXoL issue.
+            </div>
+            <div style={{ display: "flex", gap: 12 }}>
+              <Btn onClick={() => window.open(currentUrl, "_blank")}>Open in New Tab ↗</Btn>
+              <Btn onClick={() => setView("favorites")} outline>← Back to Favorites</Btn>
+            </div>
+          </div>
+        ) : currentUrl ? (
+          <iframe
+            ref={iframeRef}
+            src={currentUrl}
+            style={{ width: "100%", height: "100%", border: "none" }}
+            onLoad={() => setLoading(false)}
+            onError={() => { setBlocked(true); setLoading(false); }}
+            title="RoXoL Browser"
+            allow="autoplay; fullscreen; picture-in-picture"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
+          />
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", flexDirection: "column", gap: 16 }}>
+            <div style={{ fontSize: 48 }}>🌐</div>
+            <div style={{ color: "#666", fontSize: 14 }}>Enter a URL above to browse</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
