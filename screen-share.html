@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RoXoL Screen Share</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #07070f;
+      color: #f0f0f8;
+      font-family: 'Outfit', sans-serif;
+      overflow: hidden;
+    }
+    
+    .container {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+      position: relative;
+    }
+    
+    .video-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 10px;
+      background: #0d0d1a;
+    }
+    
+    .video-container {
+      position: relative;
+      background: #121220;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
+    
+    .label {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 6px 12px;
+      background: rgba(130, 87, 229, 0.8);
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      z-index: 10;
+    }
+    
+    .controls {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      background: rgba(13, 13, 26, 0.95);
+      padding: 15px 20px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      backdrop-filter: blur(10px);
+      z-index: 100;
+    }
+    
+    button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s;
+      background: #8257e5;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    button:hover {
+      opacity: 0.85;
+      transform: translateY(-1px);
+    }
+    
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    button.secondary {
+      background: transparent;
+      border: 1px solid #8257e5;
+      color: #8257e5;
+    }
+    
+    button.danger {
+      background: #ff4757;
+      border: 1px solid #ff4757;
+    }
+    
+    .status {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      padding: 12px 16px;
+      background: rgba(27, 204, 24, 0.1);
+      border: 1px solid rgba(27, 204, 24, 0.3);
+      border-radius: 8px;
+      font-size: 13px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      z-index: 50;
+    }
+    
+    .status.error {
+      background: rgba(255, 71, 87, 0.1);
+      border-color: rgba(255, 71, 87, 0.3);
+      color: #ff4757;
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #1bcc18;
+      animation: pulse 2s infinite;
+    }
+    
+    .status.error .status-dot {
+      background: #ff4757;
+      animation: none;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      backdrop-filter: blur(4px);
+    }
+    
+    .modal-content {
+      background: #0d0d1a;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 28px;
+      max-width: 400px;
+      width: 90%;
+      animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .modal h2 {
+      font-size: 18px;
+      margin-bottom: 16px;
+      font-family: 'Orbitron', sans-serif;
+      color: #8257e5;
+    }
+    
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    
+    input {
+      padding: 10px 14px;
+      background: #121220;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      color: #f0f0f8;
+      font-size: 14px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    
+    input:focus {
+      border-color: #8257e5;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    .button-group button {
+      flex: 1;
+    }
+    
+    .placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #444;
+    }
+    
+    .placeholder-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="video-grid">
+      <div class="video-container">
+        <span class="label">Your Screen</span>
+        <video id="localVideo" playsinline autoplay muted></video>
+        <div id="localPlaceholder" class="placeholder" style="display: none;">
+          <div class="placeholder-icon">📱</div>
+          <div>Awaiting your screen</div>
+        </div>
+      </div>
+      
+      <div class="video-container">
+        <span class="label">Partner's Screen</span>
+        <video id="remoteVideo" playsinline autoplay></video>
+        <div id="remotePlaceholder" class="placeholder">
+          <div class="placeholder-icon">👥</div>
+          <div>Waiting for partner to connect</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="controls">
+    <button id="startBtn">📺 Start Sharing</button>
+    <button id="stopBtn" class="danger" style="display: none;">🛑 Stop</button>
+    <button id="swapBtn" class="secondary">🔄 Swap View</button>
+    <button id="codeBtn" class="secondary">🔗 Share Code</button>
+  </div>
+  
+  <div id="status" class="status" style="display: none;">
+    <div class="status-dot"></div>
+    <span id="statusText">Connected</span>
+  </div>
+  
+  <div id="modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <h2 id="modalTitle">Start Screen Share</h2>
+      <div id="modalBody"></div>
+      <div class="button-group">
+        <button id="modalConfirm" style="flex: 1;">Confirm</button>
+        <button id="modalCancel" class="secondary" style="flex: 1;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Configuration
+    const CONFIG = {
+      iceServers: [
+        { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }
+      ],
+      signalServer: 'https://rxol-signal.herokuapp.com', // You'll need to set this up
+    };
+
+    // State
+    let state = {
+      localStream: null,
+      remoteStream: null,
+      peerConnection: null,
+      dataChannel: null,
+      sessionId: null,
+      isInitiator: false,
+      shareCode: null,
+      connected: false,
+      videoSwapped: false,
+    };
+
+    const elements = {
+      localVideo: document.getElementById('localVideo'),
+      remoteVideo: document.getElementById('remoteVideo'),
+      localPlaceholder: document.getElementById('localPlaceholder'),
+      remotePlaceholder: document.getElementById('remotePlaceholder'),
+      startBtn: document.getElementById('startBtn'),
+      stopBtn: document.getElementById('stopBtn'),
+      swapBtn: document.getElementById('swapBtn'),
+      codeBtn: document.getElementById('codeBtn'),
+      status: document.getElementById('status'),
+      statusText: document.getElementById('statusText'),
+      modal: document.getElementById('modal'),
+      modalTitle: document.getElementById('modalTitle'),
+      modalBody: document.getElementById('modalBody'),
+      modalConfirm: document.getElementById('modalConfirm'),
+      modalCancel: document.getElementById('modalCancel'),
+    };
+
+    // Utility functions
+    function showStatus(message, isError = false) {
+      elements.statusText.textContent = message;
+      elements.status.classList.toggle('error', isError);
+      elements.status.style.display = 'flex';
+      if (!isError) setTimeout(() => { elements.status.style.display = 'none'; }, 4000);
+    }
+
+    function generateShareCode() {
+      return Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+
+    function showModal(title, body, onConfirm) {
+      elements.modalTitle.textContent = title;
+      elements.modalBody.innerHTML = body;
+      elements.modal.style.display = 'flex';
+      
+      elements.modalConfirm.onclick = () => {
+        elements.modal.style.display = 'none';
+        onConfirm();
+      };
+      elements.modalCancel.onclick = () => {
+        elements.modal.style.display = 'none';
+      };
+    }
+
+    // WebRTC Setup
+    async function createPeerConnection() {
+      const peerConnection = new RTCPeerConnection({
+        iceServers: CONFIG.iceServers,
+      });
+
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          sendSignalMessage({
+            type: 'ice-candidate',
+            candidate: event.candidate,
+          });
+        }
+      };
+
+      peerConnection.ontrack = (event) => {
+        console.log('Received remote stream');
+        state.remoteStream = event.streams[0];
+        elements.remoteVideo.srcObject = state.remoteStream;
+        elements.remotePlaceholder.style.display = 'none';
+      };
+
+      peerConnection.ondatachannel = (event) => {
+        state.dataChannel = event.channel;
+        setupDataChannel(state.dataChannel);
+      };
+
+      return peerConnection;
+    }
+
+    async function startScreenShare() {
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            cursor: 'always'
+          },
+          audio: false
+        });
+
+        state.localStream = stream;
+        elements.localVideo.srcObject = stream;
+        elements.localPlaceholder.style.display = 'none';
+
+        // Handle stop from user clicking "Stop sharing" in browser UI
+        stream.getVideoTracks()[0].onended = () => {
+          stopScreenShare();
+        };
+
+        return stream;
+      } catch (err) {
+        if (err.name !== 'NotAllowedError') {
+          showStatus('Failed to start screen share: ' + err.message, true);
+        }
+        throw err;
+      }
+    }
+
+    async function stopScreenShare() {
+      if (state.localStream) {
+        state.localStream.getTracks().forEach(track => track.stop());
+        state.localStream = null;
+        elements.localVideo.srcObject = null;
+        elements.localPlaceholder.style.display = 'flex';
+      }
+      
+      elements.startBtn.style.display = 'inline-flex';
+      elements.stopBtn.style.display = 'none';
+    }
+
+    function setupDataChannel(dataChannel) {
+      dataChannel.onopen = () => {
+        console.log('Data channel opened');
+        state.connected = true;
+      };
+      dataChannel.onmessage = (event) => {
+        console.log('Message received:', event.data);
+      };
+      dataChannel.onclose = () => {
+        console.log('Data channel closed');
+        state.connected = false;
+      };
+    }
+
+    async function createOffer() {
+      state.peerConnection = await createPeerConnection();
+      
+      if (state.localStream) {
+        state.localStream.getTracks().forEach(track => {
+          state.peerConnection.addTrack(track, state.localStream);
+        });
+      }
+
+      const dataChannel = state.peerConnection.createDataChannel('chat');
+      state.dataChannel = dataChannel;
+      setupDataChannel(dataChannel);
+
+      const offer = await state.peerConnection.createOffer();
+      await state.peerConnection.setLocalDescription(offer);
+
+      sendSignalMessage({
+        type: 'offer',
+        offer: state.peerConnection.localDescription,
+      });
+    }
+
+    async function handleOffer(offer) {
+      if (!state.peerConnection) {
+        state.peerConnection = await createPeerConnection();
+        
+        if (state.localStream) {
+          state.localStream.getTracks().forEach(track => {
+            state.peerConnection.addTrack(track, state.localStream);
+          });
+        }
+      }
+
+      await state.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+      const answer = await state.peerConnection.createAnswer();
+      await state.peerConnection.setLocalDescription(answer);
+
+      sendSignalMessage({
+        type: 'answer',
+        answer: state.peerConnection.localDescription,
+      });
+    }
+
+    async function handleAnswer(answer) {
+      await state.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    }
+
+    async function handleIceCandidate(candidate) {
+      try {
+        await state.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.error('Error adding ICE candidate:', err);
+      }
+    }
+
+    // Signaling (using localStorage for demo - replace with WebSocket in production)
+    function sendSignalMessage(message) {
+      message.sessionId = state.sessionId;
+      const key = `signal:${state.sessionId}`;
+      const signals = JSON.parse(localStorage.getItem(key) || '[]');
+      signals.push(message);
+      localStorage.setItem(key, JSON.stringify(signals));
+      
+      // Broadcast to other tab
+      window.dispatchEvent(new CustomEvent('signal-update'));
+    }
+
+    function receiveSignalMessages() {
+      const key = `signal:${state.sessionId}`;
+      const signals = JSON.parse(localStorage.getItem(key) || '[]');
+      
+      signals.forEach(msg => {
+        if (msg.sessionId === state.sessionId) return; // Skip own messages
+        
+        if (msg.type === 'offer') handleOffer(msg.offer);
+        else if (msg.type === 'answer') handleAnswer(msg.answer);
+        else if (msg.type === 'ice-candidate') handleIceCandidate(msg.candidate);
+      });
+
+      // Clear processed messages
+      localStorage.setItem(key, '[]');
+    }
+
+    // Event listeners
+    elements.startBtn.addEventListener('click', async () => {
+      state.sessionId = generateShareCode();
+      state.isInitiator = true;
+      
+      showModal(
+        '🎬 Start Screen Share',
+        `
+          <p style="margin-bottom: 12px; color: #aaa;">Your share code:</p>
+          <div style="
+            font-family: 'Orbitron', monospace;
+            font-size: 24px;
+            color: #8257e5;
+            text-align: center;
+            padding: 12px;
+            background: #121220;
+            border-radius: 8px;
+            border: 1px solid #8257e5;
+            margin-bottom: 12px;
+            letter-spacing: 0.1em;
+          ">${state.sessionId}</div>
+          <p style="color: #666; font-size: 12px;">Share this code with your partner to connect</p>
+        `,
+        async () => {
+          try {
+            await startScreenShare();
+            await createOffer();
+            elements.startBtn.style.display = 'none';
+            elements.stopBtn.style.display = 'inline-flex';
+            showStatus('Screen sharing started. Waiting for partner...');
+            
+            // Start polling for messages
+            const pollInterval = setInterval(() => {
+              receiveSignalMessages();
+              if (!state.localStream) clearInterval(pollInterval);
+            }, 500);
+          } catch (err) {
+            console.error('Error starting screen share:', err);
+          }
+        }
+      );
+    });
+
+    elements.stopBtn.addEventListener('click', async () => {
+      await stopScreenShare();
+      if (state.peerConnection) {
+        state.peerConnection.close();
+        state.peerConnection = null;
+      }
+      showStatus('Screen sharing stopped');
+    });
+
+    elements.swapBtn.addEventListener('click', () => {
+      state.videoSwapped = !state.videoSwapped;
+      const temp = elements.localVideo.style.gridColumn;
+      elements.localVideo.parentElement.style.order = state.videoSwapped ? '2' : '1';
+      elements.remoteVideo.parentElement.style.order = state.videoSwapped ? '1' : '2';
+      showStatus('View swapped');
+    });
+
+    elements.codeBtn.addEventListener('click', () => {
+      showModal(
+        '🔗 Join Screen Share',
+        `
+          <div class="input-group">
+            <label style="font-size: 12px; color: #888;">Enter share code:</label>
+            <input type="text" id="shareCodeInput" placeholder="E.g. ABC123" style="text-transform: uppercase; text-align: center; font-size: 18px; letter-spacing: 0.1em; font-family: 'Orbitron', monospace;" maxlength="6" />
+          </div>
+        `,
+        async () => {
+          const code = document.getElementById('shareCodeInput').value.toUpperCase();
+          if (!code || code.length < 4) {
+            showStatus('Invalid share code', true);
+            return;
+          }
+          
+          state.sessionId = code;
+          state.isInitiator = false;
+          
+          try {
+            await startScreenShare();
+            await new Promise(r => setTimeout(r, 500)); // Wait for initiator to create offer
+            receiveSignalMessages();
+            elements.startBtn.style.display = 'none';
+            elements.stopBtn.style.display = 'inline-flex';
+            showStatus('Connected to partner!');
+            
+            // Start polling
+            const pollInterval = setInterval(() => {
+              receiveSignalMessages();
+              if (!state.localStream) clearInterval(pollInterval);
+            }, 500);
+          } catch (err) {
+            console.error('Error joining:', err);
+            showStatus('Failed to join', true);
+          }
+        }
+      );
+    });
+
+    // Listen for storage changes from other tabs
+    window.addEventListener('storage', (e) => {
+      if (e.key?.startsWith('signal:')) {
+        receiveSignalMessages();
+      }
+    });
+
+    // Initialize
+    console.log('Screen Share App Ready');
+  </script>
+</body>
+</html>
